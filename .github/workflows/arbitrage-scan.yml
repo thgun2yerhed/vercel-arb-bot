@@ -1,0 +1,44 @@
+name: Solana Arbitrage Scan
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Scan for arbitrage
+        run: |
+          node -e "
+          const https = require('https');
+          const JUPITER = 'https://quote-api.jup.ag/v6/quote';
+          const USDC = 'EPjFWaLb3odccccVvM4TdcZkS93vXqbNXCLFiRaKVnPU';
+          const USDT = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenEP9';
+          const SOL = 'So11111111111111111111111111111111111111112';
+          
+          async function getPrice(inp, out, amt) {
+            return new Promise(r => {
+              const url = \`\${JUPITER}?inputMint=\${inp}&outputMint=\${out}&amount=\${amt}&slippageBps=100\`;
+              https.get(url, res => {
+                let d = '';
+                res.on('data', c => d += c);
+                res.on('end', () => {
+                  try { r(JSON.parse(d).outAmount || null); } catch { r(null); }
+                });
+              }).on('error', () => r(null));
+            });
+          }
+          
+          (async () => {
+            const usdc = await getPrice(SOL, USDC, 1000000000);
+            const usdt = await getPrice(SOL, USDT, 1000000000);
+            if (usdc && usdt) {
+              const spread = Math.abs(usdc - usdt) / Math.max(usdc, usdt);
+              console.log(\`SPREAD: \${(spread*100).toFixed(3)}% | USDC: \${usdc} | USDT: \${usdt}\`);
+              if (spread > 0.005) console.log('*** ARBITRAGE OPPORTUNITY ***');
+            }
+          })();
+          "
