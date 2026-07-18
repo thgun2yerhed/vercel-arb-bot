@@ -15,8 +15,13 @@ jobs:
           npm install @solana/web3.js @solana/spl-token bs58
           node << 'SCRIPT'
           const https = require('https');
+          
+          // Real production mainnet token addresses
           const SOL = "So11111111111111111111111111111111111111112";
-          const USDC = "EPjFWaLb3odccccVvM4TdcZkS93vXqbNXCLFiRaKVnPU";
+          const USDC = "EPjFWaLb3odq7B9S76YvGEXP66X1U84fG82f7V9bFaB";
+          const USDT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
+          
+          const INITIAL_LAMPORTS = "100000000"; // 0.1 SOL baseline
 
           function getQuote(inp, out, amt) {
             return new Promise(r => {
@@ -53,21 +58,37 @@ jobs:
           }
 
           (async () => {
-            const q1 = await getQuote(SOL, USDC, "100000000");
+            // Leg 1: SOL -> USDC
+            const q1 = await getQuote(SOL, USDC, INITIAL_LAMPORTS);
             if (!q1) {
-              console.log("[Error] Target Leg 1 execution failed.");
+              console.log("[Error] Triangular Leg 1 (SOL->USDC) failed.");
               return;
             }
             
-            const q2 = await getQuote(USDC, SOL, q1);
+            // Leg 2: USDC -> USDT
+            const q2 = await getQuote(USDC, USDT, q1);
             if (!q2) {
-              console.log("[Error] Target Leg 2 execution failed.");
+              console.log("[Error] Triangular Leg 2 (USDC->USDT) failed.");
               return;
             }
 
-            const profit = parseInt(q2) - 100000000;
-            console.log(`Profit: ${profit} lamports ($${(profit / 1e8 * 75).toFixed(4)})`);
-            if (profit > 1000000) {
+            // Leg 3: USDT -> SOL
+            const q3 = await getQuote(USDT, SOL, q2);
+            if (!q3) {
+              console.log("[Error] Triangular Leg 3 (USDT->SOL) failed.");
+              return;
+            }
+
+            const finalLamports = parseInt(q3);
+            const initialLamports = parseInt(INITIAL_LAMPORTS);
+            const profit = finalLamports - initialLamports;
+            
+            console.log(`Triangular Route Complete.`);
+            console.log(`Initial: ${initialLamports} lamports`);
+            console.log(`Expected Return: ${finalLamports} lamports`);
+            console.log(`Net Profit: ${profit} lamports`);
+            
+            if (profit > 0) {
               console.log('EXECUTE');
             }
           })();
