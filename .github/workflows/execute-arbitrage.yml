@@ -16,17 +16,18 @@ jobs:
           const https = require('https');
           
           const SOL = "So11111111111111111111111111111111111111112";
-          const USDC = "EPjFWaLb3odccccVvM4TdcZkS93vXqbNXCLFiRaKVnPU";
+          const RAY = "4k3Dyjzvzp8eMZWUeNAgYwNe3Hzl7aAy8n9rNHZJcZUz";
+          const COPE = "8HGyAAB1yoM1ttS7pnqwRW2jsjQS3MfvHWQE3eznz5oe";
           
           function getQuote(inputMint, outputMint, amount) {
             return new Promise((r) => {
               const timer = setTimeout(() => {
-                console.log('TIMEOUT on ' + inputMint);
+                console.log('TIMEOUT');
                 r(null);
-              }, 3000);
+              }, 5000);
               
-              const url = `https://api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=100`;
-              console.log('Fetching: ' + url);
+              const url = `https://api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=50`;
+              console.log('Quote: ' + outputMint.substring(0, 8) + '...');
               
               https.get(url, res => {
                 clearTimeout(timer);
@@ -35,24 +36,25 @@ jobs:
                 res.on('end', () => {
                   try { 
                     const json = JSON.parse(d);
-                    console.log('Got quote: ' + JSON.stringify(json).substring(0, 100));
-                    r(json.outAmount);
-                  } catch (e) { 
-                    console.log('Parse error: ' + e.message);
-                    r(null); 
-                  }
+                    if (json.outAmount) r(parseInt(json.outAmount));
+                    else { console.log('Error: ' + json.error); r(null); }
+                  } catch (e) { r(null); }
                 });
-              }).on('error', e => {
+              }).on('error', () => {
                 clearTimeout(timer);
-                console.log('Request error: ' + e.message);
                 r(null);
               });
             });
           }
           
           (async () => {
-            console.log('[START] Arbitrage execution');
-            const q1 = await getQuote(SOL, USDC, 1000000000);
-            console.log('Q1 result: ' + q1);
+            const q1 = await getQuote(SOL, RAY, 1000000000);
+            const q2 = await getQuote(SOL, COPE, 1000000000);
+            
+            if (q1 && q2) {
+              const spread = Math.abs(q1 - q2) / Math.max(q1, q2);
+              console.log(`SPREAD: ${(spread*100).toFixed(3)}% | RAY: ${q1} | COPE: ${q2}`);
+              if (spread > 0.005) console.log('*** ARBITRAGE LIVE ***');
+            }
           })();
           SCRIPT
