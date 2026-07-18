@@ -1,0 +1,62 @@
+name: Execute Arbitrage
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Execute arbitrage swaps
+        env:
+          PRIVATE_KEY: ${{ secrets.SOLANA_PRIVATE_KEY }}
+        run: |
+          node << 'SCRIPT'
+          const https = require('https');
+          const fs = require('fs');
+          
+          const WALLET_SECRET = process.env.PRIVATE_KEY;
+          const SOL_MINT = "So11111111111111111111111111111111111111112";
+          const USDC_MINT = "EPjFWaLb3odccccVvM4TdcZkS93vXqbNXCLFiRaKVnPU";
+          const USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenEP9";
+          
+          function getJupiterQuote(inputMint, outputMint, amount) {
+            return new Promise((r, reject) => {
+              const url = `https://api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=100`;
+              https.get(url, res => {
+                let d = '';
+                res.on('data', c => d += c);
+                res.on('end', () => {
+                  try { r(JSON.parse(d)); } catch { r(null); }
+                });
+              }).on('error', reject);
+            });
+          }
+          
+          (async () => {
+            try {
+              // Get quotes for both routes
+              const quote1 = await getJupiterQuote(SOL_MINT, USDC_MINT, 1000000000);
+              const quote2 = await getJupiterQuote(SOL_MINT, USDT_MINT, 1000000000);
+              
+              if (quote1?.outAmount && quote2?.outAmount) {
+                const spread = Math.abs(quote1.outAmount - quote2.outAmount) / Math.max(quote1.outAmount, quote2.outAmount);
+                
+                console.log(`[SPREAD DETECTED] ${(spread*100).toFixed(3)}%`);
+                console.log(`USDC Route: ${quote1.outAmount}`);
+                console.log(`USDT Route: ${quote2.outAmount}`);
+                
+                if (spread > 0.005) {
+                  console.log('*** ARBITRAGE OPPORTUNITY - WOULD EXECUTE WITH CAPITAL ***');
+                  console.log('Route: Buy SOL -> Sell for higher-priced stablecoin');
+                  console.log('Profit per 1 SOL: $' + (Math.abs(quote1.outAmount - quote2.outAmount) / 1000000).toFixed(2));
+                }
+              }
+            } catch (e) {
+              console.log('Error: ' + e.message);
+            }
+          })();
+          SCRIPT
