@@ -20,25 +20,36 @@ jobs:
           const SOL = 'So11111111111111111111111111111111111111112';
           
           async function getPrice(inp, out, amt) {
-            return new Promise(r => {
+            return new Promise((r, reject) => {
+              const timer = setTimeout(() => {
+                reject(new Error('Timeout'));
+              }, 5000);
+              
               const url = \`\${JUPITER}?inputMint=\${inp}&outputMint=\${out}&amount=\${amt}&slippageBps=100\`;
               https.get(url, res => {
+                clearTimeout(timer);
                 let d = '';
                 res.on('data', c => d += c);
                 res.on('end', () => {
                   try { r(JSON.parse(d).outAmount || null); } catch { r(null); }
                 });
-              }).on('error', () => r(null));
+              }).on('error', reject);
             });
           }
           
           (async () => {
-            const usdc = await getPrice(SOL, USDC, 1000000000);
-            const usdt = await getPrice(SOL, USDT, 1000000000);
-            if (usdc && usdt) {
-              const spread = Math.abs(usdc - usdt) / Math.max(usdc, usdt);
-              console.log(\`SPREAD: \${(spread*100).toFixed(3)}% | USDC: \${usdc} | USDT: \${usdt}\`);
-              if (spread > 0.005) console.log('*** ARBITRAGE OPPORTUNITY ***');
+            try {
+              const usdc = await getPrice(SOL, USDC, 1000000000);
+              const usdt = await getPrice(SOL, USDT, 1000000000);
+              if (usdc && usdt) {
+                const spread = Math.abs(usdc - usdt) / Math.max(usdc, usdt);
+                console.log(\`SPREAD: \${(spread*100).toFixed(3)}% | USDC: \${usdc} | USDT: \${usdt}\`);
+                if (spread > 0.005) console.log('*** ARBITRAGE OPPORTUNITY ***');
+              } else {
+                console.log('Price fetch failed');
+              }
+            } catch (e) {
+              console.log('Error: ' + e.message);
             }
           })();
           "
