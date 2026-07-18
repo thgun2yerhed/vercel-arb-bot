@@ -23,7 +23,7 @@ jobs:
           const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
           const USDT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
           const INITIAL_LAMPORTS = "1000000000";
-          const MIN_PROFIT = 10000;
+          const MIN_PROFIT = 6000;
 
           async function getQuote(inp, out, amt) {
             const url = `https://api.jup.ag/swap/v1/quote?inputMint=${inp}&outputMint=${out}&amount=${amt}&slippageBps=50`;
