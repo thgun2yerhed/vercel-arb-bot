@@ -11,52 +11,48 @@ jobs:
       - uses: actions/checkout@v3
       
       - name: Execute arbitrage swaps
-        env:
-          PRIVATE_KEY: ${{ secrets.SOLANA_PRIVATE_KEY }}
         run: |
           node << 'SCRIPT'
           const https = require('https');
-          const fs = require('fs');
           
-          const WALLET_SECRET = process.env.PRIVATE_KEY;
-          const SOL_MINT = "So11111111111111111111111111111111111111112";
-          const USDC_MINT = "EPjFWaLb3odccccVvM4TdcZkS93vXqbNXCLFiRaKVnPU";
-          const USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenEP9";
+          const SOL = "So11111111111111111111111111111111111111112";
+          const USDC = "EPjFWaLb3odccccVvM4TdcZkS93vXqbNXCLFiRaKVnPU";
           
-          function getJupiterQuote(inputMint, outputMint, amount) {
-            return new Promise((r, reject) => {
+          function getQuote(inputMint, outputMint, amount) {
+            return new Promise((r) => {
+              const timer = setTimeout(() => {
+                console.log('TIMEOUT on ' + inputMint);
+                r(null);
+              }, 3000);
+              
               const url = `https://api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=100`;
+              console.log('Fetching: ' + url);
+              
               https.get(url, res => {
+                clearTimeout(timer);
                 let d = '';
                 res.on('data', c => d += c);
                 res.on('end', () => {
-                  try { r(JSON.parse(d)); } catch { r(null); }
+                  try { 
+                    const json = JSON.parse(d);
+                    console.log('Got quote: ' + JSON.stringify(json).substring(0, 100));
+                    r(json.outAmount);
+                  } catch (e) { 
+                    console.log('Parse error: ' + e.message);
+                    r(null); 
+                  }
                 });
-              }).on('error', reject);
+              }).on('error', e => {
+                clearTimeout(timer);
+                console.log('Request error: ' + e.message);
+                r(null);
+              });
             });
           }
           
           (async () => {
-            try {
-              // Get quotes for both routes
-              const quote1 = await getJupiterQuote(SOL_MINT, USDC_MINT, 1000000000);
-              const quote2 = await getJupiterQuote(SOL_MINT, USDT_MINT, 1000000000);
-              
-              if (quote1?.outAmount && quote2?.outAmount) {
-                const spread = Math.abs(quote1.outAmount - quote2.outAmount) / Math.max(quote1.outAmount, quote2.outAmount);
-                
-                console.log(`[SPREAD DETECTED] ${(spread*100).toFixed(3)}%`);
-                console.log(`USDC Route: ${quote1.outAmount}`);
-                console.log(`USDT Route: ${quote2.outAmount}`);
-                
-                if (spread > 0.005) {
-                  console.log('*** ARBITRAGE OPPORTUNITY - WOULD EXECUTE WITH CAPITAL ***');
-                  console.log('Route: Buy SOL -> Sell for higher-priced stablecoin');
-                  console.log('Profit per 1 SOL: $' + (Math.abs(quote1.outAmount - quote2.outAmount) / 1000000).toFixed(2));
-                }
-              }
-            } catch (e) {
-              console.log('Error: ' + e.message);
-            }
+            console.log('[START] Arbitrage execution');
+            const q1 = await getQuote(SOL, USDC, 1000000000);
+            console.log('Q1 result: ' + q1);
           })();
           SCRIPT
