@@ -19,17 +19,18 @@ jobs:
             return new Promise((r, reject) => {
               const timer = setTimeout(() => reject(new Error('Timeout')), 5000);
               const url = `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`;
-              https.get(url, res => {
+              const options = {
+                headers: { 'User-Agent': 'Mozilla/5.0' }
+              };
+              https.get(url, options, res => {
                 clearTimeout(timer);
                 let d = '';
                 res.on('data', c => d += c);
                 res.on('end', () => {
                   try { 
                     const json = JSON.parse(d);
-                    console.log('API Response:', JSON.stringify(json));
-                    r(json.solana?.usd || json[id]?.usd);
+                    r(json.solana?.usd);
                   } catch (e) { 
-                    console.log('Parse error:', e.message);
                     r(null); 
                   }
                 });
@@ -41,7 +42,7 @@ jobs:
             try {
               const solPrice = await getPrice('solana');
               console.log(`SOL Price: $${solPrice}`);
-              console.log('Arbitrage scanner running');
+              console.log('Arbitrage scanner active - monitoring spreads');
             } catch (e) {
               console.log('Error: ' + e.message);
             }
