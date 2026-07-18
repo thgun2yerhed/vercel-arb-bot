@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Execute real swaps
         run: |
           npm install @solana/web3.js @solana/spl-token bs58
@@ -17,24 +17,58 @@ jobs:
           const https = require('https');
           const SOL = "So11111111111111111111111111111111111111112";
           const USDC = "EPjFWaLb3odccccVvM4TdcZkS93vXqbNXCLFiRaKVnPU";
-          
+
           function getQuote(inp, out, amt) {
             return new Promise(r => {
               const url = `https://api.jup.ag/swap/v1/quote?inputMint=${inp}&outputMint=${out}&amount=${amt}&slippageBps=50`;
-              https.get(url, res => {
-                let d=''; res.on('data',c=>d+=c);
-                res.on('end',()=>{try{r(JSON.parse(d).outAmount)}catch{r(null)}});
-              }).on('error',()=>r(null));
+              
+              const options = {
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+              };
+
+              https.get(url, options, res => {
+                let d = '';
+                res.on('data', c => d += c);
+                res.on('end', () => {
+                  try {
+                    const parsed = JSON.parse(d);
+                    if (parsed.outAmount) {
+                      r(parsed.outAmount);
+                    } else {
+                      console.log(`[Error] Jupiter response missing outAmount. Status: ${res.statusCode}. Body: ${d.substring(0, 120)}`);
+                      r(null);
+                    }
+                  } catch {
+                    console.log(`[Error] Failed parsing JSON. Status code: ${res.statusCode}`);
+                    r(null);
+                  }
+                });
+              }).on('error', (err) => {
+                console.log(`[Error] Network connection failure: ${err.message}`);
+                r(null);
+              });
             });
           }
-          
-          (async()=>{
-            const q1 = await getQuote(SOL, USDC, 100000000);
+
+          (async () => {
+            const q1 = await getQuote(SOL, USDC, "100000000");
+            if (!q1) {
+              console.log("[Error] Target Leg 1 execution failed.");
+              return;
+            }
+            
             const q2 = await getQuote(USDC, SOL, q1);
-            if(q1 && q2){
-              const profit = parseInt(q2) - 100000000;
-              console.log(`Profit: ${profit} lamports ($${(profit/1e8*75).toFixed(4)})`);
-              if(profit > 1000000) console.log('EXECUTE');
+            if (!q2) {
+              console.log("[Error] Target Leg 2 execution failed.");
+              return;
+            }
+
+            const profit = parseInt(q2) - 100000000;
+            console.log(`Profit: ${profit} lamports ($${(profit / 1e8 * 75).toFixed(4)})`);
+            if (profit > 1000000) {
+              console.log('EXECUTE');
             }
           })();
           SCRIPT
