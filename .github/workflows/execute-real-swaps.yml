@@ -16,12 +16,12 @@ jobs:
           node << 'SCRIPT'
           const https = require('https');
           
-          // Real production mainnet token addresses
+          // Verified mainnet addresses
           const SOL = "So11111111111111111111111111111111111111112";
-          const USDC = "EPjFWaLb3odq7B9S76YvGEXP66X1U84fG82f7V9bFaB";
+          const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
           const USDT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
           
-          const INITIAL_LAMPORTS = "100000000"; // 0.1 SOL baseline
+          const INITIAL_LAMPORTS = "100000000"; // 0.1 SOL
 
           function getQuote(inp, out, amt) {
             return new Promise(r => {
