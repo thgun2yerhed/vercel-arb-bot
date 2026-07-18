@@ -26,8 +26,10 @@ jobs:
                 res.on('end', () => {
                   try { 
                     const json = JSON.parse(d);
-                    r(json[id]?.usd);
-                  } catch { 
+                    console.log('API Response:', JSON.stringify(json));
+                    r(json.solana?.usd || json[id]?.usd);
+                  } catch (e) { 
+                    console.log('Parse error:', e.message);
                     r(null); 
                   }
                 });
@@ -39,7 +41,7 @@ jobs:
             try {
               const solPrice = await getPrice('solana');
               console.log(`SOL Price: $${solPrice}`);
-              console.log('Arbitrage scanner running every 5 minutes');
+              console.log('Arbitrage scanner running');
             } catch (e) {
               console.log('Error: ' + e.message);
             }
