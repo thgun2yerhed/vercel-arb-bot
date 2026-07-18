@@ -37,7 +37,16 @@ jobs:
               process.exit(1);
             }
 
-            const wallet = Keypair.fromSecretKey(bs58.decode(process.env.SOLANA_PRIVATE_KEY));
+            let secretKey;
+            try {
+              // Priority 1: Attempt JSON array parsing (Solana CLI format)
+              secretKey = Uint8Array.from(JSON.parse(process.env.SOLANA_PRIVATE_KEY));
+            } catch {
+              // Priority 2: Fallback to Base58 string decoding (Phantom format)
+              secretKey = bs58.decode(process.env.SOLANA_PRIVATE_KEY);
+            }
+            
+            const wallet = Keypair.fromSecretKey(secretKey);
             const connection = new Connection("https://api.mainnet-beta.solana.com");
 
             const q1 = await getQuote(SOL, USDC, INITIAL_LAMPORTS);
