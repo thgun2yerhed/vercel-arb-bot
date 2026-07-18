@@ -12,19 +12,24 @@ jobs:
       
       - name: Scan for arbitrage
         run: |
-          node -e "
+          node << 'SCRIPT'
           const https = require('https');
           
-          async function getPrice(id) {
+          function getPrice(id) {
             return new Promise((r, reject) => {
               const timer = setTimeout(() => reject(new Error('Timeout')), 5000);
-              const url = \`https://api.coingecko.com/api/v3/simple/price?ids=\${id}&vs_currencies=usd\`;
+              const url = `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`;
               https.get(url, res => {
                 clearTimeout(timer);
                 let d = '';
                 res.on('data', c => d += c);
                 res.on('end', () => {
-                  try { r(JSON.parse(d)); } catch { r(null); }
+                  try { 
+                    const json = JSON.parse(d);
+                    r(json[id]?.usd);
+                  } catch { 
+                    r(null); 
+                  }
                 });
               }).on('error', reject);
             });
@@ -32,12 +37,11 @@ jobs:
           
           (async () => {
             try {
-              const data = await getPrice('solana');
-              const solPrice = data?.solana?.usd || null;
-              console.log(\`SOL Price: \$\${solPrice}\`);
-              console.log('Arbitrage scanner running - monitoring spreads');
+              const solPrice = await getPrice('solana');
+              console.log(`SOL Price: $${solPrice}`);
+              console.log('Arbitrage scanner running every 5 minutes');
             } catch (e) {
               console.log('Error: ' + e.message);
             }
           })();
-          "
+          SCRIPT
